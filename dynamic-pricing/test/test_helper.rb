@@ -1,4 +1,5 @@
 ENV["RAILS_ENV"] ||= "test"
+ENV["RATE_API_TOKEN"] ||= "test_token"
 require_relative "../config/environment"
 require "rails/test_help"
 require "minitest/mock"

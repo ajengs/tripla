@@ -1,8 +1,8 @@
 class RateApiClient
   include HTTParty
-  base_uri ENV.fetch('RATE_API_URL', 'http://localhost:8080')
+  base_uri ENV.fetch('RATE_API_URL')
   headers "Content-Type" => "application/json"
-  headers 'token' => ENV.fetch('RATE_API_TOKEN', '04aa6f42aa03f220c2ae9a276cd68c62')
+  headers 'token' => ENV.fetch('RATE_API_TOKEN')
   default_timeout ENV.fetch('RATE_API_TIMEOUT', 5).to_i
 
   VALID_PERIODS = %w[Summer Autumn Winter Spring].freeze

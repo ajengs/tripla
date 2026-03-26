@@ -15,7 +15,7 @@ end
 ActiveSupport::Notifications.subscribe("rate_api_unavailable.pricing") do |*, payload|
   Rails.logger.error(
     "event=rate_api_unavailable request_id=#{Current.request_id} " \
-    "exception=#{payload[:exception].class} " \
+    "exception=#{payload[:exception]} " \
     "period=#{payload[:period]} hotel=#{payload[:hotel]} room=#{payload[:room]}"
   )
 end

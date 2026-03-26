@@ -53,7 +53,7 @@ module Api::V1
       nil
     rescue *RETRY_EXCEPTIONS => e
       upstream_error!
-      ActiveSupport::Notifications.instrument("rate_api_unavailable.pricing", exception: e, period: @period, hotel: @hotel, room: @room)
+      ActiveSupport::Notifications.instrument("rate_api_unavailable.pricing", exception: e.class, period: @period, hotel: @hotel, room: @room)
       errors << "Pricing API is unavailable"
       nil
     end
