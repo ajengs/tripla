@@ -107,6 +107,42 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
     end
   end
 
+  test "should be invalid and invalidate cache when matched rate entry has no rate attribute" do
+    response = stub_response(
+      success: true,
+      body: {
+        "rates" => [
+          { "period" => @period, "hotel" => @hotel, "room" => @room }
+        ]
+      }
+    )
+
+    RateApiClient.stub(:get_all_rates, response) do
+      sut = service
+      sut.run
+      refute sut.valid?
+      assert_includes sut.errors, "Rate value missing from pricing API response"
+      assert_nil Rails.cache.read(Api::V1::PricingCache::KEY), "cache should be invalidated"
+    end
+  end
+
+  test "should retry API on next request after cache invalidation" do
+    incomplete_response = stub_response(
+      success: true,
+      body: { "rates" => [{ "period" => @period, "hotel" => @hotel, "room" => @room }] }
+    )
+    RateApiClient.stub(:get_all_rates, incomplete_response) do
+      service.run  # populates cache with incomplete data, then invalidates it
+    end
+
+    RateApiClient.stub(:get_all_rates, rates_response) do
+      sut = service
+      sut.run
+      assert sut.valid?
+      assert_equal "15000", sut.result
+    end
+  end
+
   [Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNREFUSED].each do |exception_class|
     test "should be invalid when API raises #{exception_class}" do
       RateApiClient.stub(:get_all_rates, ->(*) { raise exception_class }) do

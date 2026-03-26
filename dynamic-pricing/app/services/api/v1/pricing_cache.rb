@@ -16,4 +16,8 @@ class Api::V1::PricingCache
       r["room"] == room
     end
   end
+
+  def self.invalidate
+    Rails.cache.delete(KEY)
+  end
 end

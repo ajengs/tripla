@@ -11,8 +11,13 @@ module Api::V1
         fetch_from_api
       end
 
-      if valid?
-        @result = cached&.dig('rate')
+      return unless valid?
+
+      @result = cached&.dig('rate')
+      if cached && @result.nil?
+        PricingCache.invalidate
+        upstream_error!
+        errors << "Rate value missing from pricing API response"
       end
     end
 

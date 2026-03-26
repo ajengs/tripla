@@ -98,4 +98,13 @@ class Api::V1::PricingCacheTest < ActiveSupport::TestCase
     assert_equal 0, call_count
     assert_equal "20000", result["rate"]
   end
+
+  test "invalidate should remove cached data" do
+    Rails.cache.write(cache::KEY, @data)
+
+    cache.invalidate
+
+    assert_nil Rails.cache.read(cache::KEY)
+  end
+
 end
