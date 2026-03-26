@@ -1,0 +1,88 @@
+# bin/load_test
+# Usage: ruby bin/load_test [concurrency] [total_requests]
+#Example: ruby bin/load_test 10 500
+
+require "net/http"
+require "uri"
+require "json"
+
+HOST = "localhost"
+PORT = 3000
+CONCURRENCY = (ARGV[0] || 10).to_i
+TOTAL = (ARGV[1] || 200).to_i
+
+COMBINATIONS = [
+  { period: "Summer",  hotel: "FloatingPointResort", room: "SingletonRoom" },
+  { period: "Summer",  hotel: "FloatingPointResort", room: "BooleanTwin" },
+  { period: "Winter",  hotel: "GitawayHotel",        room: "RestfulKing" },
+  { period: "Autumn",  hotel: "RecursionRetreat",    room: "SingletonRoom" },
+  { period: "Spring",  hotel: "GitawayHotel",        room: "BooleanTwin" },
+].freeze
+
+results = []
+mutex = Mutex.new
+
+def build_uri(combo)
+  uri = URI("http://#{HOST}:#{PORT}/api/v1/pricing")
+  uri.query = URI.encode_www_form(combo)
+  uri
+end
+
+def make_request(combo)
+  uri = build_uri(combo)
+  start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  response = Net::HTTP.get_response(uri)
+  elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
+
+  body = JSON.parse(response.body) rescue {}
+  { status: response.code.to_i, elapsed: elapsed, combo: combo, body: body }
+end
+
+queue = TOTAL.times.map { COMBINATIONS.sample }
+
+workers = CONCURRENCY.times.map do
+  Thread.new do
+    while (combo = queue.shift)
+      result = make_request(combo)
+      mutex.synchronize { results << result }
+    end
+  end
+end
+
+print "Running #{TOTAL} requests with concurrency #{CONCURRENCY}..."
+start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+workers.each(&:join)
+total_time = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
+puts " done.\n\n"
+
+# --- Report ---
+success = results.select { |r| r[:status] == 200 }
+errors = results.reject { |r| r[:status] == 200 }
+latencies = results.map { |r| r[:elapsed] }.sort
+
+p50 = latencies[(latencies.size * 0.50).floor]
+p95 = latencies[(latencies.size * 0.95).floor]
+p99 = latencies[(latencies.size * 0.99).floor]
+
+puts "=== Results ==="
+puts "Total requests: #{results.size}"
+puts "Successful: #{success.size} (#{(success.size.to_f / results.size * 100).round(1)}%)"
+puts "Failed: #{errors.size}"
+puts "Total time: #{total_time.round(2)}s"
+puts "Throughput: #{(results.size / total_time).round(1)} req/s"
+puts ""
+puts "=== Latency ==="
+puts "Min: #{(latencies.first * 1000).round(1)}ms"
+puts "p50  : #{(p50 * 1000).round(1)}ms"
+puts "p95  : #{(p95 * 1000).round(1)}ms"
+puts "p99  : #{(p99 * 1000).round(1)}ms"
+puts "Max: #{(latencies.last * 1000).round(1)}ms"
+
+if errors.any?
+  puts ""
+  puts "=== Errors ===".center(40)
+  errors.group_by { |r| r[:status] }.each do |status, reqs|
+    puts "HTTP #{status}: #{reqs.size} requests"
+    puts "  Sample: #{reqs.first[:body]}"
+  end
+end
