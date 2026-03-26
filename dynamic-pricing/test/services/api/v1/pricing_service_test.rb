@@ -41,13 +41,14 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
     end
   end
 
-  test "should return nil result when rate is absent from response" do
+  test "should be invalid when rate is absent from response" do
     response = stub_response(success: true, body: { "rates" => [] })
     RateApiClient.stub(:get_all_rates, response) do
       sut = service
       sut.run
-      assert sut.valid?
-      assert_nil sut.result
+      refute sut.valid?
+      assert sut.upstream_error?
+      assert_includes sut.errors, "Empty response from pricing API"
     end
   end
 
@@ -67,6 +68,7 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
       sut = service
       sut.run
       refute sut.valid?
+      assert sut.upstream_error?
       assert_includes sut.errors, "Empty response from pricing API"
     end
   end

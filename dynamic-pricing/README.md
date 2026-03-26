@@ -72,4 +72,7 @@ ruby bin/load_test 50 1000
 docker compose exec interview-dev ruby bin/load_test
 ```
 
-Run it twice back-to-back — the second run should show significantly lower latency since the cache is already warm.
+Run it twice back-to-back, the second run should show significantly lower latency since the cache is already warm.
+
+## Implementation Notes
+[Implementation notes](./SOLUTION.md)

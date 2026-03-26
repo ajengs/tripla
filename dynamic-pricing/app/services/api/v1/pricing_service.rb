@@ -34,8 +34,13 @@ module Api::V1
 
         if response.success?
           payload[:success] = true
-          response.parsed_response&.dig('rates').tap do |rates|
-            errors << "Empty response from pricing API" if rates.nil?
+          rates = response.parsed_response&.dig('rates')
+          if rates.blank?
+            upstream_error!
+            errors << "Empty response from pricing API"
+            nil
+          else
+            rates
           end
         else
           payload[:success] = false
