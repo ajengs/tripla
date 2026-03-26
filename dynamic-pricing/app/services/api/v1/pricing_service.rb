@@ -9,58 +9,99 @@ module Api::V1
     end
 
     def run
-      cached = PricingCache.find(period: @period, hotel: @hotel, room: @room) do
-        fetch_from_api
+      data = PricingCache.find(period: @period, hotel: @hotel, room: @room) do
+        fetch_rates
       end
 
       return unless valid?
 
-      @result = cached&.dig('rate')
-      if cached && @result.nil?
-        PricingCache.invalidate
-        upstream_error!
-        ActiveSupport::Notifications.instrument("rate_missing.pricing",
-          period: @period, hotel: @hotel, room: @room)
-        errors << "Rate value missing from pricing API response"
-      end
+      assign_result(data)
     end
 
     private
     
-    def fetch_from_api
-      ActiveSupport::Notifications.instrument("rate_api.pricing", period: @period, hotel: @hotel, room: @room) do |payload|
-        response = with_circuit_breaker { with_retry { RateApiClient.get_all_rates } }
-        payload[:http_status] = response.code
+    def assign_result(data)
+      @result = data&.dig('rate')
+
+      return if data.blank? || @result.present?
+
+      handle_missing_rate
+    end
+
+    # --- API ---
+    def fetch_rates
+      instrument_api_call do |payload|
+        response = safe_api_call
+
+        payload[:http_status] = response&.code
+        payload[:success] = response&.success?
 
         if response.success?
-          payload[:success] = true
-          rates = response.parsed_response&.dig('rates')
-          if rates.blank?
-            upstream_error!
-            errors << "Empty response from pricing API"
-            nil
-          else
-            rates
-          end
+          extract_rates(response)
         else
-          payload[:success] = false
-          upstream_error!
           message = response.parsed_response&.dig('error').presence || "Unexpected error from Pricing API"
-          errors << message
-          nil
+          handle_failure(message)
         end
       end
-    rescue Stoplight::Error::RedLight
-      upstream_error!
-      ActiveSupport::Notifications.instrument("rate_api_unavailable.pricing",
-        exception: Stoplight::Error::RedLight, period: @period, hotel: @hotel, room: @room)
-      errors << "Pricing API is temporarily unavailable"
-      nil
+    rescue Stoplight::Error::RedLight => e
+      handle_unavailable(e)
     rescue *RETRY_EXCEPTIONS => e
-      upstream_error!
-      ActiveSupport::Notifications.instrument("rate_api_unavailable.pricing", exception: e.class, period: @period, hotel: @hotel, room: @room)
-      errors << "Pricing API is unavailable"
+      handle_unavailable(e)
+    end
+
+    def safe_api_call
+      with_circuit_breaker do
+        with_retry { RateApiClient.get_all_rates }
+      end
+    end
+
+    def extract_rates(response)
+      rates = response.parsed_response&.dig('rates')
+
+      return handle_failure("Empty response from pricing API") if rates.blank?
+
+      rates
+    end
+
+    # --- Error handling ---
+    def handle_missing_rate
+      PricingCache.invalidate
+      fail_upstream!("Rate value missing from pricing API response")
+
+      ActiveSupport::Notifications.instrument(
+        "rate_missing.pricing",
+        period: @period, hotel: @hotel, room: @room
+      )
+    end
+
+    def handle_failure(message)
+      fail_upstream!(message)
       nil
+    end
+
+    def handle_unavailable(exception)
+      ActiveSupport::Notifications.instrument(
+        "rate_api_unavailable.pricing",
+        exception: exception.class,
+        period: @period, hotel: @hotel, room: @room
+      )
+
+      fail_upstream!("Pricing API is unavailable")
+      nil
+    end
+
+    def fail_upstream!(message)
+      upstream_error!
+      errors << message
+    end
+
+    # --- Infra ---
+    def instrument_api_call(&block)
+      ActiveSupport::Notifications.instrument(
+        "rate_api.pricing",
+        period: @period, hotel: @hotel, room: @room,
+        &block
+      )
     end
 
     def with_retry(&block)

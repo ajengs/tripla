@@ -198,7 +198,7 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
       assert_equal 0, call_count, "API should not be called when circuit is open"
       refute sut.valid?
       assert_equal :upstream_error, sut.error_code
-      assert_includes sut.errors, "Pricing API is temporarily unavailable"
+      assert_includes sut.errors, "Pricing API is unavailable"
     end
   end
 
