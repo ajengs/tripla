@@ -21,18 +21,20 @@ module Api::V1
     def fetch_from_api
       rate = RateApiClient.get_rate(period: @period, hotel: @hotel, room: @room)
       if rate.success?
-        rate.parsed_response['rates']
+        rate.parsed_response&.dig('rates').tap do |rates|
+          errors << "Empty response from pricing API" if rates.nil?
+        end
       else
         upstream_error!
-        message = rate.parsed_response&.dig('error').presence || "Unexpected error"
+        message = rate.parsed_response&.dig('error').presence || "Unexpected error from Pricing API"
         Rails.logger.error("PricingService API error: #{message} [period=#{@period}, hotel=#{@hotel}, room=#{@room}]")
         errors << message
         nil
       end
-    rescue Net::OpenTimeout, Net::ReadTimeout => e
+    rescue Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNREFUSED => e
       upstream_error!
-      Rails.logger.error("PricingService timeout: #{e.class} [period=#{@period}, hotel=#{@hotel}, room=#{@room}]")
-      errors << "Request timed out"
+      Rails.logger.error("PricingService API error: #{e.class} [period=#{@period}, hotel=#{@hotel}, room=#{@room}]")
+      errors << "Pricing API is unavailable"
       nil
     end
   end

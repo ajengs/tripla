@@ -59,22 +59,13 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
     end
   end
 
-  test "should be invalid when API times out" do
-    RateApiClient.stub(:get_rate, ->(*) { raise Net::OpenTimeout }) do
-      sut = service
-      sut.run
-      refute sut.valid?
-      assert_includes sut.errors, "Request timed out"
-    end
-  end
-
-  test "should be invalid when failed API contains no error" do
-    response = stub_response(success: false, body: nil)
+  test "should be invalid when API returns nil parsed_response on success" do
+    response = stub_response(success: true, body: nil)
     RateApiClient.stub(:get_rate, response) do
       sut = service
       sut.run
       refute sut.valid?
-      assert_includes sut.errors, "Unexpected error"
+      assert_includes sut.errors, "Empty response from pricing API"
     end
   end
 
@@ -102,6 +93,27 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
       sut.run
       assert sut.valid?
       assert_equal "15000", sut.result
+    end
+  end
+
+  test "should be invalid when failed API contains no error" do
+    response = stub_response(success: false, body: nil)
+    RateApiClient.stub(:get_rate, response) do
+      sut = service
+      sut.run
+      refute sut.valid?
+      assert_includes sut.errors, "Unexpected error from Pricing API"
+    end
+  end
+
+  [Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNREFUSED].each do |exception_class|
+    test "should be invalid when API raises #{exception_class}" do
+      RateApiClient.stub(:get_rate, ->(*) { raise exception_class }) do
+        sut = service
+        sut.run
+        refute sut.valid?
+        assert_includes sut.errors, "Pricing API is unavailable"
+      end
     end
   end
 end

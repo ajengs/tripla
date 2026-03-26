@@ -123,7 +123,7 @@ class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
 
       assert_response :bad_gateway
       json_response = JSON.parse(@response.body)
-      assert_includes json_response['error'], "timed out"
+      assert_includes json_response['error'], "unavailable"
     end
   end
 
