@@ -13,7 +13,7 @@ module Api::V1
         parsed_rate = JSON.parse(rate.body)
         @result = parsed_rate['rates'].detect { |r| r['period'] == @period && r['hotel'] == @hotel && r['room'] == @room }&.dig('rate')
       else
-        errors << rate.body['error']
+        errors << JSON.parse(rate.body)['error']
       end
     end
   end
