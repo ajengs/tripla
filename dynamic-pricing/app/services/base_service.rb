@@ -1,5 +1,6 @@
 class BaseService
   attr_accessor :result
+  attr_reader :error_code
 
   def valid?
     errors.blank?
@@ -17,5 +18,6 @@ class BaseService
 
   def upstream_error!
     @upstream_error = true
+    @error_code = :upstream_error
   end
 end

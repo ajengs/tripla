@@ -58,6 +58,7 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
       sut = service
       sut.run
       refute sut.valid?
+      assert_equal :upstream_error, sut.error_code
       assert_equal "rate limit exceeded", sut.errors[0]
     end
   end
@@ -124,6 +125,7 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
       sut = service
       sut.run
       refute sut.valid?
+      assert_equal :upstream_error, sut.error_code
       assert_includes sut.errors, "Rate value missing from pricing API response"
       assert_nil Rails.cache.read(Api::V1::PricingCache::KEY), "cache should be invalidated"
     end
@@ -153,6 +155,7 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
         sut = service
         sut.run
         refute sut.valid?
+        assert_equal :upstream_error, sut.error_code
         assert_includes sut.errors, "Pricing API is unavailable"
         assert_equal 2, call_count, "retriable should attempt once then retry once"
       end
@@ -177,6 +180,7 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
       sut = service
       sut.run
       refute sut.valid?
+      assert_equal :upstream_error, sut.error_code
       assert_includes sut.errors, "Pricing API is unavailable"
       assert_equal 2, call_count, "should have tried twice before giving up"
     end
@@ -193,6 +197,7 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
       sut.run
       assert_equal 0, call_count, "API should not be called when circuit is open"
       refute sut.valid?
+      assert_equal :upstream_error, sut.error_code
       assert_includes sut.errors, "Pricing API is temporarily unavailable"
     end
   end
@@ -203,6 +208,7 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
       sut = service
       sut.run
       refute sut.valid?
+      assert_equal :upstream_error, sut.error_code
       assert_includes sut.errors, "rate limit exceeded"
       # non-network error should not trip the circuit breaker
     end

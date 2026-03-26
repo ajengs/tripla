@@ -44,6 +44,8 @@ class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
 
       json_response = JSON.parse(@response.body)
       assert_includes json_response["error"], "Rate not found"
+      assert_equal "upstream_error", json_response['code']
+      assert_equal 502, response.status
     end
   end
 
@@ -55,6 +57,8 @@ class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
 
     json_response = JSON.parse(@response.body)
     assert_includes json_response["error"], "Missing required parameters"
+    assert_equal "invalid_params", json_response['code']
+    assert_equal 400, response.status
   end
 
   test "should handle empty parameters" do
@@ -69,6 +73,8 @@ class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
 
     json_response = JSON.parse(@response.body)
     assert_includes json_response["error"], "Missing required parameters"
+    assert_equal "invalid_params", json_response['code']
+    assert_equal 400, response.status
   end
 
   test "should reject invalid period" do
@@ -83,6 +89,8 @@ class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
 
     json_response = JSON.parse(@response.body)
     assert_includes json_response["error"], "Invalid period"
+    assert_equal "invalid_params", json_response['code']
+    assert_equal 400, response.status
   end
 
   test "should reject invalid hotel" do
@@ -97,6 +105,8 @@ class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
 
     json_response = JSON.parse(@response.body)
     assert_includes json_response["error"], "Invalid hotel"
+    assert_equal "invalid_params", json_response['code']
+    assert_equal 400, response.status
   end
 
   test "should reject invalid room" do
@@ -111,6 +121,8 @@ class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
 
     json_response = JSON.parse(@response.body)
     assert_includes json_response["error"], "Invalid room"
+    assert_equal "invalid_params", json_response['code']
+    assert_equal 400, response.status
   end
 
   test "should return 502 when API times out" do
@@ -124,6 +136,8 @@ class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
       assert_response :bad_gateway
       json_response = JSON.parse(@response.body)
       assert_includes json_response['error'], "unavailable"
+      assert_equal "upstream_error", json_response['code']
+      assert_equal 502, response.status
     end
   end
 
@@ -139,6 +153,8 @@ class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
       assert_response :bad_gateway
       json_response = JSON.parse(@response.body)
       assert_includes json_response['error'], "Unexpected error"
+      assert_equal "upstream_error", json_response['code']
+      assert_equal 502, response.status
     end
   end
 
