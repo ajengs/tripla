@@ -19,7 +19,7 @@ module Api::V1
     private
     
     def fetch_from_api
-      rate = RateApiClient.get_rate(period: @period, hotel: @hotel, room: @room)
+      rate = RateApiClient.get_all_rates
       if rate.success?
         rate.parsed_response&.dig('rates').tap do |rates|
           errors << "Empty response from pricing API" if rates.nil?

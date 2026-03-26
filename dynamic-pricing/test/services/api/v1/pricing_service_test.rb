@@ -31,7 +31,7 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
   end
 
   test "should return rate from API on success" do
-    RateApiClient.stub(:get_rate, rates_response) do
+    RateApiClient.stub(:get_all_rates, rates_response) do
       sut = service
       sut.run
       assert sut.valid?
@@ -41,7 +41,7 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
 
   test "should return nil result when rate is absent from response" do
     response = stub_response(success: true, body: { "rates" => [] })
-    RateApiClient.stub(:get_rate, response) do
+    RateApiClient.stub(:get_all_rates, response) do
       sut = service
       sut.run
       assert sut.valid?
@@ -51,7 +51,7 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
 
   test "should be invalid on API failure" do
     response = stub_response(success: false, body: { "error" => "rate limit exceeded" })
-    RateApiClient.stub(:get_rate, response) do
+    RateApiClient.stub(:get_all_rates, response) do
       sut = service
       sut.run
       refute sut.valid?
@@ -61,7 +61,7 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
 
   test "should be invalid when API returns nil parsed_response on success" do
     response = stub_response(success: true, body: nil)
-    RateApiClient.stub(:get_rate, response) do
+    RateApiClient.stub(:get_all_rates, response) do
       sut = service
       sut.run
       refute sut.valid?
@@ -70,11 +70,11 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
   end
 
   test "should not call API when data is cached" do
-    RateApiClient.stub(:get_rate, rates_response) do
+    RateApiClient.stub(:get_all_rates, rates_response) do
       service.run
     end
 
-    RateApiClient.stub(:get_rate, ->(*) { raise "API should not be called on cache hit" }) do
+    RateApiClient.stub(:get_all_rates, ->(*) { raise "API should not be called on cache hit" }) do
       sut = service
       sut.run
       assert sut.valid?
@@ -84,11 +84,11 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
 
   test "should not cache API errors so next call retries" do
     error_response = stub_response(success: false, body: { "error" => "service unavailable" })
-    RateApiClient.stub(:get_rate, error_response) do
+    RateApiClient.stub(:get_all_rates, error_response) do
       service.run
     end
 
-    RateApiClient.stub(:get_rate, rates_response) do
+    RateApiClient.stub(:get_all_rates, rates_response) do
       sut = service
       sut.run
       assert sut.valid?
@@ -98,7 +98,7 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
 
   test "should be invalid when failed API contains no error" do
     response = stub_response(success: false, body: nil)
-    RateApiClient.stub(:get_rate, response) do
+    RateApiClient.stub(:get_all_rates, response) do
       sut = service
       sut.run
       refute sut.valid?
@@ -108,7 +108,7 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
 
   [Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNREFUSED].each do |exception_class|
     test "should be invalid when API raises #{exception_class}" do
-      RateApiClient.stub(:get_rate, ->(*) { raise exception_class }) do
+      RateApiClient.stub(:get_all_rates, ->(*) { raise exception_class }) do
         sut = service
         sut.run
         refute sut.valid?

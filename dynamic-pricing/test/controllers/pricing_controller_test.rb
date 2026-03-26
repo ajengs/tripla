@@ -14,7 +14,7 @@ class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
 
     mock_response = OpenStruct.new(success?: true, parsed_response: mock_body)
 
-    RateApiClient.stub(:get_rate, mock_response) do
+    RateApiClient.stub(:get_all_rates, mock_response) do
       get api_v1_pricing_url, params: {
         period: "Summer",
         hotel: "FloatingPointResort",
@@ -32,7 +32,7 @@ class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
   test "should return error when rate API fails" do
     mock_response = OpenStruct.new(success?: false, parsed_response: { 'error' => 'Rate not found' })
 
-    RateApiClient.stub(:get_rate, mock_response) do
+    RateApiClient.stub(:get_all_rates, mock_response) do
       get api_v1_pricing_url, params: {
         period: "Summer",
         hotel: "FloatingPointResort",
@@ -114,7 +114,7 @@ class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should return 502 when API times out" do
-    RateApiClient.stub(:get_rate, ->(*) { raise Net::OpenTimeout }) do
+    RateApiClient.stub(:get_all_rates, ->(*) { raise Net::OpenTimeout }) do
       get api_v1_pricing_url, params: {
         period: "Summer",
         hotel: "FloatingPointResort",
@@ -129,7 +129,7 @@ class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
 
   test "should return 502 when API returns empty response" do
     mock_response = OpenStruct.new(success?: false, parsed_response: nil, code: 500)
-    RateApiClient.stub(:get_rate, mock_response) do
+    RateApiClient.stub(:get_all_rates, mock_response) do
       get api_v1_pricing_url, params: {
         period: "Summer",
         hotel: "FloatingPointResort",
@@ -153,11 +153,11 @@ class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
       }
     )
 
-    RateApiClient.stub(:get_rate, mock_response) do
+    RateApiClient.stub(:get_all_rates, mock_response) do
       get api_v1_pricing_url, params: { period: "Summer", hotel: "FloatingPointResort", room: "SingletonRoom" }
     end
 
-    RateApiClient.stub(:get_rate, ->(*) { raise "API should not be called on cache hit" }) do
+    RateApiClient.stub(:get_all_rates, ->(*) { raise "API should not be called on cache hit" }) do
       get api_v1_pricing_url, params: { period: "Summer", hotel: "FloatingPointResort", room: "SingletonRoom" }
 
       assert_response :success
