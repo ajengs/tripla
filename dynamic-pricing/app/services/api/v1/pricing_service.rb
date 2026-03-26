@@ -1,5 +1,7 @@
 module Api::V1
   class PricingService < BaseService
+    RETRY_EXCEPTIONS = [Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNREFUSED].freeze
+
     def initialize(period:, hotel:, room:)
       @period = period
       @hotel = hotel
@@ -25,7 +27,7 @@ module Api::V1
     
     def fetch_from_api
       ActiveSupport::Notifications.instrument("rate_api.pricing", period: @period, hotel: @hotel, room: @room) do |payload|
-        response = RateApiClient.get_all_rates
+        response = with_circuit_breaker { with_retry { RateApiClient.get_all_rates } }
         payload[:http_status] = response.code
 
         if response.success?
@@ -41,11 +43,37 @@ module Api::V1
           nil
         end
       end
-    rescue Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNREFUSED => e
+    rescue Stoplight::Error::RedLight
+      upstream_error!
+      ActiveSupport::Notifications.instrument("rate_api_unavailable.pricing",
+        exception: Stoplight::Error::RedLight, period: @period, hotel: @hotel, room: @room)
+      errors << "Pricing API is temporarily unavailable"
+      nil
+    rescue *RETRY_EXCEPTIONS => e
       upstream_error!
       ActiveSupport::Notifications.instrument("rate_api_unavailable.pricing", exception: e, period: @period, hotel: @hotel, room: @room)
       errors << "Pricing API is unavailable"
       nil
+    end
+
+    def with_retry(&block)
+      Retriable.retriable(
+        on: RETRY_EXCEPTIONS,
+        tries: 2,
+        base_interval: 0.25,
+        multiplier: 2,
+        on_retry: lambda { |exception, try, _elapsed, next_interval|
+          ActiveSupport::Notifications.instrument("rate_api_retry.pricing",
+            exception: exception.class, try: try, next_interval: next_interval,
+            period: @period, hotel: @hotel, room: @room)
+        }
+      ) do
+        block.call
+      end
+    end
+
+    def with_circuit_breaker(&block)
+      Stoplight("rate_api", threshold: 3, cool_off_time: 60).run(&block)
     end
   end
 end

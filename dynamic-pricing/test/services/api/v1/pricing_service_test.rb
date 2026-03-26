@@ -3,6 +3,7 @@ require "test_helper"
 class Api::V1::PricingServiceTest < ActiveSupport::TestCase
   def setup
     Rails.cache.clear
+    Retriable.configure { |c| c.base_interval = 0 } # no sleep between retries in tests
     @period = "Summer"
     @hotel = "FloatingPointResort"
     @room = "SingletonRoom"
@@ -145,11 +146,83 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
 
   [Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNREFUSED].each do |exception_class|
     test "should be invalid when API raises #{exception_class}" do
-      RateApiClient.stub(:get_all_rates, ->(*) { raise exception_class }) do
+      call_count = 0
+      RateApiClient.stub(:get_all_rates, -> { call_count += 1; raise exception_class }) do
         sut = service
         sut.run
         refute sut.valid?
         assert_includes sut.errors, "Pricing API is unavailable"
+        assert_equal 2, call_count, "retriable should attempt once then retry once"
+      end
+    end
+  end
+
+  test "should retry once on transient failure before succeeding" do
+    call_count = 0
+    stub = -> { call_count += 1; call_count == 1 ? raise(Net::OpenTimeout) : rates_response }
+    RateApiClient.stub(:get_all_rates, stub) do
+      sut = service
+      sut.run
+      assert sut.valid?
+      assert_equal "15000", sut.result
+      assert_equal 2, call_count, "should have retried once"
+    end
+  end
+
+  test "should be invalid after all retries exhausted" do
+    call_count = 0
+    RateApiClient.stub(:get_all_rates, -> { call_count += 1; raise Net::OpenTimeout }) do
+      sut = service
+      sut.run
+      refute sut.valid?
+      assert_includes sut.errors, "Pricing API is unavailable"
+      assert_equal 2, call_count, "should have tried twice before giving up"
+    end
+  end
+
+  test "should open circuit after threshold failures" do
+    RateApiClient.stub(:get_all_rates, -> { raise Net::OpenTimeout }) do
+      3.times { service.run }  # each run = 1 stoplight failure (after retries exhausted)
+    end
+
+    call_count = 0
+    RateApiClient.stub(:get_all_rates, -> { call_count += 1; rates_response }) do
+      sut = service
+      sut.run
+      assert_equal 0, call_count, "API should not be called when circuit is open"
+      refute sut.valid?
+      assert_includes sut.errors, "Pricing API is temporarily unavailable"
+    end
+  end
+
+  test "should not affect validity for unrelated errors when circuit is closed" do
+    response = stub_response(success: false, body: { "error" => "rate limit exceeded" })
+    RateApiClient.stub(:get_all_rates, response) do
+      sut = service
+      sut.run
+      refute sut.valid?
+      assert_includes sut.errors, "rate limit exceeded"
+      # non-network error should not trip the circuit breaker
+    end
+
+    RateApiClient.stub(:get_all_rates, rates_response) do
+      sut = service
+      sut.run
+      assert sut.valid?, "circuit should still be closed after non-network failure"
+    end
+  end
+
+  test "should recover after cool-off period" do
+    RateApiClient.stub(:get_all_rates, -> { raise Net::OpenTimeout }) do
+      3.times { service.run }
+    end
+
+    travel 61.seconds do
+      RateApiClient.stub(:get_all_rates, rates_response) do
+        sut = service
+        sut.run
+        assert sut.valid?
+        assert_equal "15000", sut.result
       end
     end
   end

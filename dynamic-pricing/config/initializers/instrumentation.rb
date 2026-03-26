@@ -20,6 +20,15 @@ ActiveSupport::Notifications.subscribe("rate_api_unavailable.pricing") do |*, pa
   )
 end
 
+ActiveSupport::Notifications.subscribe("rate_api_retry.pricing") do |*, payload|
+  Rails.logger.warn(
+    "event=rate_api_retry request_id=#{Current.request_id} " \
+    "exception=#{payload[:exception]} try=#{payload[:try]} " \
+    "next_interval=#{payload[:next_interval]} " \
+    "period=#{payload[:period]} hotel=#{payload[:hotel]} room=#{payload[:room]}"
+  )
+end
+
 ActiveSupport::Notifications.subscribe("cache_generate.active_support") do |*, payload|
   next unless payload[:key] == Api::V1::PricingCache::KEY
   Rails.logger.info("event=pricing_cache_miss request_id=#{Current.request_id} key=#{payload[:key]}")

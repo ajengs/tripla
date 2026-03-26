@@ -212,7 +212,11 @@ GEM
       io-console (~> 0.5)
     request_store (1.7.0)
       rack (>= 1.4)
+    retriable (3.4.1)
     securerandom (0.4.1)
+    stoplight (5.8.0)
+      concurrent-ruby
+      zeitwerk
     stringio (3.1.7)
     thor (1.4.0)
     timeout (0.4.3)
@@ -238,6 +242,8 @@ DEPENDENCIES
   puma (>= 5.0)
   rails (~> 7.1.5, >= 7.1.5.2)
   redis (>= 4.0.1)
+  retriable
+  stoplight
   tzinfo-data
 
 RUBY VERSION
