@@ -11,6 +11,14 @@ ActiveSupport::Notifications.subscribe("rate_api.pricing") do |_name, start, fin
     "period=#{payload[:period]} hotel=#{payload[:hotel]} room=#{payload[:room]}"
   )
 end
+  
+ActiveSupport::Notifications.subscribe("rate_api_unavailable.pricing") do |*, payload|
+  Rails.logger.error(
+    "event=rate_api_unavailable request_id=#{Current.request_id} " \
+    "exception=#{payload[:exception].class} " \
+    "period=#{payload[:period]} hotel=#{payload[:hotel]} room=#{payload[:room]}"
+  )
+end
 
 ActiveSupport::Notifications.subscribe("cache_generate.active_support") do |*, payload|
   next unless payload[:key] == Api::V1::PricingCache::KEY
@@ -20,4 +28,12 @@ end
 ActiveSupport::Notifications.subscribe("cache_fetch_hit.active_support") do |*, payload|
   next unless payload[:key] == Api::V1::PricingCache::KEY
   Rails.logger.info("event=pricing_cache_hit request_id=#{Current.request_id} key=#{payload[:key]}")
+end
+
+ActiveSupport::Notifications.subscribe("cache_error.pricing") do |*, payload|
+  Rails.logger.error(
+    "event=cache_error request_id=#{Current.request_id} " \
+    "operation=#{payload[:operation]} " \
+    "error=#{payload[:error].class} message=\"#{payload[:error].message}\""
+  )
 end

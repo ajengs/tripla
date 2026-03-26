@@ -3,9 +3,9 @@ class Api::V1::PricingCache
   TTL = 5.minutes
 
   def self.fetch_all
-    Rails.cache.fetch(KEY, expires_in: TTL, skip_nil: true) { yield }
+    Rails.cache.fetch(KEY, expires_in: TTL, skip_nil: true, race_condition_ttl: 10.seconds) { yield }
   rescue => e
-    Rails.logger.error("event=cache_unavailable error=#{e.class} message=\"#{e.message}\" request_id=#{Current.request_id}")
+    ActiveSupport::Notifications.instrument("cache_error.pricing", error: e, operation: :fetch)
     yield
   end
 
@@ -23,6 +23,6 @@ class Api::V1::PricingCache
   def self.invalidate
     Rails.cache.delete(KEY)
   rescue => e
-    Rails.logger.error("event=cache_invalidate_failed error=#{e.class} message=\"#{e.message}\" request_id=#{Current.request_id}")
+    ActiveSupport::Notifications.instrument("cache_error.pricing", error: e, operation: :invalidate)
   end
 end
