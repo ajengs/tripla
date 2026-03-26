@@ -50,11 +50,12 @@ curl 'http://localhost:3000/api/v1/pricing?period=Summer&hotel=FloatingPointReso
 # Full test suite
 docker compose exec interview-dev ./bin/rails test
 
-# Single file
-docker compose exec interview-dev ./bin/rails test test/services/api/v1/pricing_service_test.rb
+# Run a specific test file
+docker compose exec interview-dev ./bin/rails test test/controllers/pricing_controller_test.rb
 
-# Single test
-docker compose exec interview-dev ./bin/rails test test/services/api/v1/pricing_service_test.rb -n test_should_return_rate_from_API_on_success
+# Run a specific test by name
+docker compose exec interview-dev ./bin/rails test test/controllers/pricing_controller_test.rb -n test_should_get_pricing_with_all_parameters
+
 ```
 
 ## Load Testing
