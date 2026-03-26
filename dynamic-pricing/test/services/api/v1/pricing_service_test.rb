@@ -2,6 +2,7 @@ require "test_helper"
 
 class Api::V1::PricingServiceTest < ActiveSupport::TestCase
   def setup
+    Rails.cache.clear
     @period = "Summer"
     @hotel = "FloatingPointResort"
     @room = "SingletonRoom"
@@ -14,7 +15,7 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
   def stub_response(success:, body:)
     resp = Object.new
     resp.define_singleton_method(:success?) { success }
-    resp.define_singleton_method(:body) { body.is_a?(String) ? body : body.to_json }
+    resp.define_singleton_method(:parsed_response) { body }
     resp
   end
 
@@ -62,7 +63,36 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
   test "should be invalid when API times out" do
     RateApiClient.stub(:get_rate, ->(*) { raise Net::OpenTimeout }) do
       sut = service
-      assert_raises(Net::OpenTimeout) { sut.run }
+      sut.run
+      refute sut.valid?
+      assert_includes sut.errors, "Request timed out"
+    end
+  end
+
+  test "should not call API when data is cached" do
+    RateApiClient.stub(:get_rate, rates_response) do
+      service.run
+    end
+
+    RateApiClient.stub(:get_rate, ->(*) { raise "API should not be called on cache hit" }) do
+      sut = service
+      sut.run
+      assert sut.valid?
+      assert_equal "15000", sut.result
+    end
+  end
+
+  test "should not cache API errors so next call retries" do
+    error_response = stub_response(success: false, body: { "error" => "service unavailable" })
+    RateApiClient.stub(:get_rate, error_response) do
+      service.run
+    end
+
+    RateApiClient.stub(:get_rate, rates_response) do
+      sut = service
+      sut.run
+      assert sut.valid?
+      assert_equal "15000", sut.result
     end
   end
 end

@@ -1,6 +1,10 @@
 require "test_helper"
 
 class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
+  def setup
+    Rails.cache.clear
+  end
+
   test "should get pricing with all parameters" do
     mock_body = {
       'rates' => [
@@ -8,7 +12,7 @@ class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
       ]
     }.to_json
 
-    mock_response = OpenStruct.new(success?: true, body: mock_body)
+    mock_response = OpenStruct.new(success?: true, parsed_response: JSON.parse(mock_body))
 
     RateApiClient.stub(:get_rate, mock_response) do
       get api_v1_pricing_url, params: {
@@ -26,7 +30,7 @@ class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should return error when rate API fails" do
-    mock_response = OpenStruct.new(success?: false, body: { 'error' => 'Rate not found' })
+    mock_response = OpenStruct.new(success?: false, parsed_response: { 'error' => 'Rate not found' })
 
     RateApiClient.stub(:get_rate, mock_response) do
       get api_v1_pricing_url, params: {
