@@ -55,7 +55,6 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
       sut = service
       sut.run
       refute sut.valid?
-      assert_not_nil sut.errors
       assert_equal "rate limit exceeded", sut.errors[0]
     end
   end
@@ -66,6 +65,16 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
       sut.run
       refute sut.valid?
       assert_includes sut.errors, "Request timed out"
+    end
+  end
+
+  test "should be invalid when failed API contains no error" do
+    response = stub_response(success: false, body: nil)
+    RateApiClient.stub(:get_rate, response) do
+      sut = service
+      sut.run
+      refute sut.valid?
+      assert_includes sut.errors, "Unexpected error"
     end
   end
 

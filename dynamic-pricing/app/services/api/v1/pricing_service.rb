@@ -23,10 +23,15 @@ module Api::V1
       if rate.success?
         rate.parsed_response['rates']
       else
-        errors << rate.parsed_response['error']
+        upstream_error!
+        message = rate.parsed_response&.dig('error').presence || "Unexpected error"
+        Rails.logger.error("PricingService API error: #{message} [period=#{@period}, hotel=#{@hotel}, room=#{@room}]")
+        errors << message
         nil
       end
-    rescue Net::OpenTimeout, Net::ReadTimeout
+    rescue Net::OpenTimeout, Net::ReadTimeout => e
+      upstream_error!
+      Rails.logger.error("PricingService timeout: #{e.class} [period=#{@period}, hotel=#{@hotel}, room=#{@room}]")
       errors << "Request timed out"
       nil
     end
