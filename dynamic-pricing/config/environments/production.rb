@@ -56,7 +56,7 @@ Rails.application.configure do
 
   # Use a different cache store in production.
   config.cache_store = :redis_cache_store, {
-    url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0")
+    url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"),
     namespace: "tripla-pricing-cache",
     expires_in: 5.minutes,
     error_handler: ->(method:, returning:, exception:) { raise exception }
