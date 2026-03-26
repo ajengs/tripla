@@ -19,6 +19,8 @@ module Api::V1
       if cached && @result.nil?
         PricingCache.invalidate
         upstream_error!
+        ActiveSupport::Notifications.instrument("rate_missing.pricing",
+          period: @period, hotel: @hotel, room: @room)
         errors << "Rate value missing from pricing API response"
       end
     end

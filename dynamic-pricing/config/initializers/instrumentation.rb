@@ -11,7 +11,7 @@ ActiveSupport::Notifications.subscribe("rate_api.pricing") do |_name, start, fin
     "period=#{payload[:period]} hotel=#{payload[:hotel]} room=#{payload[:room]}"
   )
 end
-  
+
 ActiveSupport::Notifications.subscribe("rate_api_unavailable.pricing") do |*, payload|
   Rails.logger.error(
     "event=rate_api_unavailable request_id=#{Current.request_id} " \
@@ -25,6 +25,13 @@ ActiveSupport::Notifications.subscribe("rate_api_retry.pricing") do |*, payload|
     "event=rate_api_retry request_id=#{Current.request_id} " \
     "exception=#{payload[:exception]} try=#{payload[:try]} " \
     "next_interval=#{payload[:next_interval]} " \
+    "period=#{payload[:period]} hotel=#{payload[:hotel]} room=#{payload[:room]}"
+  )
+end
+
+ActiveSupport::Notifications.subscribe("rate_missing.pricing") do |*, payload|
+  Rails.logger.error(
+    "event=rate_missing request_id=#{Current.request_id} " \
     "period=#{payload[:period]} hotel=#{payload[:hotel]} room=#{payload[:room]}"
   )
 end
