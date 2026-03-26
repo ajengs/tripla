@@ -37,14 +37,13 @@ module Api::V1
           payload[:success] = true
           upstream_error!
           message = response.parsed_response&.dig('error').presence || "Unexpected error from Pricing API"
-          Rails.logger.error("PricingService API error: #{message} [period=#{@period}, hotel=#{@hotel}, room=#{@room}]")
           errors << message
           nil
         end
       end
     rescue Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNREFUSED => e
       upstream_error!
-      Rails.logger.error("PricingService API error: #{e.class} [period=#{@period}, hotel=#{@hotel}, room=#{@room}]")
+      Rails.logger.error("event=rate_api_unavailable exception=#{e.class} period=#{@period} hotel=#{@hotel} room=#{@room}")
       errors << "Pricing API is unavailable"
       nil
     end

@@ -20,7 +20,8 @@ Rails.application.configure do
   config.cache_store = :redis_cache_store, {
     url: ENV.fetch("REDIS_URL"),
     namespace: "tripla-pricing-cache",
-    expires_in: 5.minutes
+    expires_in: 5.minutes,
+    error_handler: ->(method:, returning:, exception:) { raise exception }
   }
   config.action_controller.perform_caching = true
   

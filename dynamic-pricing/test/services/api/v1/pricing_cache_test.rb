@@ -107,4 +107,21 @@ class Api::V1::PricingCacheTest < ActiveSupport::TestCase
     assert_nil Rails.cache.read(cache::KEY)
   end
 
+  test "fetch_all falls through to block when cache raises" do
+    Rails.cache.stub(:fetch, ->(*) { raise RuntimeError, "cache unavailable" }) do
+      call_count = 0
+      result = cache.fetch_all do
+        call_count += 1
+        @data
+      end
+      assert_equal 1, call_count
+      assert_equal @data, result
+    end
+  end
+
+  test "invalidate does not raise when cache raises" do
+    Rails.cache.stub(:delete, ->(*) { raise RuntimeError, "cache unavailable" }) do
+      assert_nothing_raised { cache.invalidate }
+    end
+  end
 end
