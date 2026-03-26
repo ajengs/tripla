@@ -3,13 +3,7 @@ class Api::V1::PricingCache
   TTL = 5.minutes
 
   def self.fetch_all
-    cache_miss = false
-    result = Rails.cache.fetch(KEY, expires_in: TTL, skip_nil: true) do
-      cache_miss = true
-      yield
-    end
-    Rails.logger.debug("Cache miss for key: #{KEY}") if cache_miss
-    result
+    Rails.cache.fetch(KEY, expires_in: TTL, skip_nil: true) { yield }
   end
 
   def self.find(period:, hotel:, room:)

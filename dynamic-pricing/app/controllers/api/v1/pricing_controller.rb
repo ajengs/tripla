@@ -1,7 +1,7 @@
 class Api::V1::PricingController < ApplicationController
-  VALID_PERIODS = %w[Summer Autumn Winter Spring].freeze
-  VALID_HOTELS = %w[FloatingPointResort GitawayHotel RecursionRetreat].freeze
-  VALID_ROOMS = %w[SingletonRoom BooleanTwin RestfulKing].freeze
+    VALID_PERIODS = RateApiClient::VALID_PERIODS
+    VALID_HOTELS  = RateApiClient::VALID_HOTELS
+    VALID_ROOMS   = RateApiClient::VALID_ROOMS
 
   before_action :validate_params
 

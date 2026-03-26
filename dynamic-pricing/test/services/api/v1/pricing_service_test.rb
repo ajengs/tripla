@@ -12,10 +12,11 @@ class Api::V1::PricingServiceTest < ActiveSupport::TestCase
     Api::V1::PricingService.new(period: @period, hotel: @hotel, room: @room)
   end
 
-  def stub_response(success:, body:)
+  def stub_response(success:, body:, code: nil)
     resp = Object.new
     resp.define_singleton_method(:success?) { success }
     resp.define_singleton_method(:parsed_response) { body }
+    resp.define_singleton_method(:code) { code || (success ? 200 : 500) }
     resp
   end
 

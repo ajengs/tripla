@@ -19,17 +19,23 @@ module Api::V1
     private
     
     def fetch_from_api
-      rate = RateApiClient.get_all_rates
-      if rate.success?
-        rate.parsed_response&.dig('rates').tap do |rates|
-          errors << "Empty response from pricing API" if rates.nil?
+      ActiveSupport::Notifications.instrument("rate_api.pricing", period: @period, hotel: @hotel, room: @room) do |payload|
+        response = RateApiClient.get_all_rates
+        payload[:http_status] = response.code
+
+        if response.success?
+          payload[:success] = true
+          response.parsed_response&.dig('rates').tap do |rates|
+            errors << "Empty response from pricing API" if rates.nil?
+          end
+        else
+          payload[:success] = true
+          upstream_error!
+          message = response.parsed_response&.dig('error').presence || "Unexpected error from Pricing API"
+          Rails.logger.error("PricingService API error: #{message} [period=#{@period}, hotel=#{@hotel}, room=#{@room}]")
+          errors << message
+          nil
         end
-      else
-        upstream_error!
-        message = rate.parsed_response&.dig('error').presence || "Unexpected error from Pricing API"
-        Rails.logger.error("PricingService API error: #{message} [period=#{@period}, hotel=#{@hotel}, room=#{@room}]")
-        errors << message
-        nil
       end
     rescue Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNREFUSED => e
       upstream_error!
