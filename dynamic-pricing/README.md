@@ -2,27 +2,6 @@
 
 A Ruby on Rails service that acts as a caching proxy for an expensive dynamic pricing model. Rates are cached for 5 minutes and fetched in a single batch call to stay within API token limits.
 
-## Design
-
-### The problem
-The pricing model API is computationally expensive and rate-limited to a single token. The naive implementation calls it on every request, which exhausts the token budget and adds latency.
-
-### Caching strategy
-Rather than caching per `(period, hotel, room)` combination, the service fetches **all 36 combinations** (4 periods × 3 hotels × 3 rooms) in a single API call and caches the full result under one key for 5 minutes.
-
-**Why batch over per-key?**
-- Per-key caching could require up to 36 API calls per cache refresh cycle
-- At 10,000 req/day with 5-min TTL: worst case 36 × 288 = ~10,368 API calls/day
-- Batch approach: maximum 1 call per 5 minutes = 288 calls/day regardless of traffic
-
-The rate API's `attributes` array accepts multiple combinations in one request, making this approach possible without any API changes.
-
-### Error handling
-- API failures return `502 Bad Gateway` — the client's request was valid, the upstream failed
-- Validation failures return `400 Bad Request`
-- Errors are not cached — the next request will retry the API
-- Timeouts and connection errors are caught and surfaced with a human-readable message
-
 ## Quick Start
 
 ```bash
@@ -93,12 +72,4 @@ ruby bin/load_test 50 1000
 docker compose exec interview-dev ruby bin/load_test
 ```
 
-Run it twice back-to-back — the second run should show significantly lower latency
-since the cache is already warm.
-
-## Implementation Notes
-
-- `RateApiClient` — HTTParty client with a 5-second timeout. Fetches all rate combinations at once.
-- `PricingCache` — Thin wrapper around `Rails.cache` with a 5-minute TTL. Uses `skip_nil: true` so API errors are never cached.
-- `PricingService` — Orchestrates cache lookup and API call. Distinguishes upstream errors from validation errors via `upstream_error?` flag on `BaseService`.
-- Cache store defaults to `memory_store` in development/test. For production, swap to Redis via `config.cache_store = :redis_cache_store`.
+Run it twice back-to-back — the second run should show significantly lower latency since the cache is already warm.
